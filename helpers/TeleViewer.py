@@ -99,7 +99,7 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
               directory = f'Downloads/{username}/logs'
               if not os.path.exists(directory):
                 os.makedirs(directory)
-              with open(f'{directory}/{username}_bot.txt', 'a') as file:
+              with open(f'{directory}/{username}_bot.txt', 'a', encoding='utf-8') as file:
                 file.write(f"Message ID: {messages.id}\n")
                 file.write(
                     f"From User ID: {messages.from_user.id} - Username: {messages.from_user.username}\n"
@@ -109,17 +109,19 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
                 file.write(f"Reply_markup: {messages.reply_markup}\n\n")
               # Save the whole message to a file
               with open(f'{directory}/{username}_bot.json',
-                        'a') as file:
+                        'a', encoding='utf-8') as file:
                 file.write(str(messages))
             else:
               directory = f'Downloads/{chat_id}/logs'
-              with open(f'{directory}/{chat_id}_bot.txt', 'a') as file:
+              if not os.path.exists(directory):
+                os.makedirs(directory)
+              with open(f'{directory}/{chat_id}_bot.txt', 'a', encoding='utf-8') as file:
                 file.write(f"Message ID: {messages.id}\n")
                 file.write(f"Date: {messages.date}\n")
                 file.write(f"Text: {messages.text}\n")
                 file.write(f"Reply_markup: {messages.reply_markup}\n\n")
               # Save the whole message to a file
-              with open(f'{directory}/{chat_id}_bot.json', 'a') as file:
+              with open(f'{directory}/{chat_id}_bot.json', 'a', encoding='utf-8') as file:
                 file.write(str(messages))
     except AttributeError as e:
       print(f"Error: {e}")

@@ -13,6 +13,8 @@ helpers/__pycache__/*
 *.session
 results.txt
 downloads/*
+Downloads/*
+web_viewer_static/*.log
 *.json
 .env
 .DS_Store

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleTracker - Message Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>TeleTracker</h1>
+                <p class="subtitle">Message Viewer</p>
+            </div>
+            <div class="chat-list" id="chatList">
+                <div class="loading">Loading chats...</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="chat-header" id="chatHeader">
+                <div class="header-placeholder">
+                    <h2>Select a chat to view messages</h2>
+                </div>
+            </div>
+            <div class="search-bar" id="searchBar" style="display: none;">
+                <input type="text" id="searchInput" placeholder="Search messages..." autocomplete="off">
+                <button id="searchClear" class="search-clear-btn" style="display: none;">✕</button>
+                <div class="search-results-info" id="searchResultsInfo"></div>
+            </div>
+            <div class="messages-container" id="messagesContainer">
+                <div class="empty-state">
+                    <div class="empty-icon">💬</div>
+                    <p>Select a chat from the sidebar to view messages</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

@@ -34,6 +34,7 @@ This repository contains Python scripts, `TeleTexter.py`, `TeleGatherer.py` and 
   - **MONITOR:** Read new messages.
   - **DISRUPT:** Delete messages from malicious channels.
   - **DISRUPT:** Spam channels at a high rate with the message of your choice.
+  - **VIEW:** Launch web viewer to browse downloaded messages in a Telegram-style interface.
 
 > [!NOTE]
 > This script is intended for threat intelligence analysts or researchers who want to monitor, collect, and track adversaries using Telegram for C2 communication.
@@ -82,11 +83,35 @@ To gather intelligence from a Telegram channel:
 
 `python TeleGatherer.py -t YOUR_BOT_TOKEN -c YOUR_CHAT_ID`
 
+### Web Viewer
+
+The web viewer provides a modern, Telegram-style interface for browsing downloaded messages. Features include:
+
+- 📱 **Telegram-style UI** - Beautiful, modern interface that mimics Telegram's design
+- 🔄 **Dynamic Loading** - Automatically detects and displays all chats from the Downloads folder
+- 📝 **Message Display** - Shows message text, metadata, entities, and forwarded messages
+- 🔍 **Search Functionality** - Search through messages by text, sender, or forwarded content
+- ⚡ **Infinite Scroll** - Automatically loads more messages as you scroll
+- 🎨 **Responsive Design** - Works on desktop and mobile devices
+
+To launch the web viewer:
+
+1. Run `TeleGatherer.py` and select option **8** from the menu, or
+2. Manually start the server:
+   ```bash
+   python web_viewer.py
+   ```
+3. Open your browser to `http://localhost:5000`
+
+The viewer automatically detects all chats in your `Downloads/` folder and displays them in the sidebar. Click any chat to view its messages. Messages are grouped by their actual chat ID, so messages from different chats stored in the same folder are displayed separately.
+
 ## Recent Updates
 
+- **Web Viewer** - New Telegram-style web interface for browsing downloaded messages with search functionality
 - Ability to view and download all types of media from channels.
 - Option to select the number of messages for downloading.
 - Dual format text saving: pretty text and full JSON dumps.
+- UTF-8 encoding support for proper handling of emojis and special characters on Windows.
 - Numerous improvements and bug fixes to enhance existing features.
 
 ## Disclaimer

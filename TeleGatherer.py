@@ -4,9 +4,22 @@ import pprint
 import argparse
 import multiprocessing
 import mimetypes
+import sys
+import subprocess
+import webbrowser
 from helpers.TeleTexter import send_telegram_message
 from helpers.TeleViewer import process_messages
 
+
+try:
+  # Ensure Windows console can handle UTF-8 output (emojis, non-ASCII)
+  if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+  if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+  # Best-effort; continue if not supported
+  pass
 
 def parse_dict(title, dictionary):
   result = f"{title}:\n"
@@ -165,8 +178,9 @@ def main(bot_token, chat_id):
     print("4. Delete all messages from the malicious telegram channel that are sent within 24 hours\n")
     print("5. Get approximate number of messages on the malicious telegram channel")
     print("6. Download ALL messages from the malicious telegram channel")
-    print("7. Send a file to the malicious telegram channel\n")
-    print("8. EXIT")
+    print("7. Send a file to the malicious telegram channel")
+    print("8. Launch web viewer to browse downloaded messages\n")
+    print("9. EXIT")
     choice = input("\nEnter your choice: ")
     if choice == '1':
       offset = None  # Variable to keep track of the last update ID
@@ -262,6 +276,37 @@ def main(bot_token, chat_id):
       else:
         print("Error: Unable to send file: ", response.get("description"))
     elif choice == '8':
+      try:
+        print("\n[*] Starting web viewer server...")
+        print("[*] The web viewer will open in your default browser.")
+        print("[*] Server will run on http://localhost:5000")
+        print("[*] Press Ctrl+C in the web viewer terminal to stop the server.\n")
+        
+        # Launch web viewer in a separate process
+        if sys.platform == 'win32':
+          # On Windows, create a new console window to show Flask output
+          viewer_process = subprocess.Popen(
+              [sys.executable, 'web_viewer.py'],
+              creationflags=subprocess.CREATE_NEW_CONSOLE
+          )
+        else:
+          # On Unix-like systems, run in background
+          viewer_process = subprocess.Popen(
+              [sys.executable, 'web_viewer.py'],
+              stdout=subprocess.DEVNULL,
+              stderr=subprocess.DEVNULL
+          )
+        
+        # Wait a moment for server to start, then open browser
+        time.sleep(2)
+        webbrowser.open('http://localhost:5000')
+        
+        print("[*] Web viewer launched! Check the new window for the server.")
+        print("[*] Returning to main menu...\n")
+      except Exception as e:
+        print(f"Error launching web viewer: {e}")
+        print("You can manually start it by running: python web_viewer.py")
+    elif choice == '9':
       print("Exiting...")
       break
     else:
@@ -269,14 +314,14 @@ def main(bot_token, chat_id):
 
 # Check a file for the bot token and chat id pair it is stored in the file in the form of bot_token:chat_id, then print a message asking if you are sure you want to continue. Otherwise continue and add the bot token and chat id to the file in the form of bot_token:chat_id and continue.
 def check_file_for_token_and_chat_id(file_path, bot_token, chat_id):
-  with open(file_path, 'r') as file:
+  with open(file_path, 'r', encoding='utf-8') as file:
     for line in file:
       if line.strip() == f"{bot_token}:{chat_id}":
         return True
   return False
 
 def add_token_and_chat_id_to_file(file_path, bot_token, chat_id):
-  with open(file_path, 'a') as file:
+  with open(file_path, 'a', encoding='utf-8') as file:
     file.write(f"{bot_token}:{chat_id}\n")
 
 if __name__ == "__main__":
