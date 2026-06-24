@@ -301,10 +301,29 @@ def discover_all_chats(use_cache=True):
                         'source_folder': chat_dir.name
                     }
     
+    # Prefer explicit per-chat metadata (written by the downloader) for display
+    # fields, so the chat name/type are reliable even when messages don't carry
+    # full chat info (media-only or service-message-only chats).
+    for chat in chats_dict.values():
+        folder = chat.get('source_folder')
+        if not folder:
+            continue
+        meta_file = DOWNLOADS_DIR / folder / 'metadata.json'
+        if meta_file.exists():
+            try:
+                with open(meta_file, 'r', encoding='utf-8') as f:
+                    meta = json.load(f)
+            except Exception:
+                continue
+            if meta.get('name'):
+                chat['name'] = meta['name']
+            if meta.get('type'):
+                chat['type'] = meta['type']
+
     # Cache the results
     if use_cache:
         _chat_cache[cache_key] = chats_dict
-    
+
     return chats_dict
 
 

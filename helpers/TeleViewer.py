@@ -48,6 +48,31 @@ def parse_and_print_message(message):
   print("=" * 20 + "\n")
 
 
+def write_chat_metadata(chat_id, chat):
+  """Write a small metadata.json in the chat's folder so the web viewer can
+  show the chat name/type reliably, instead of parsing it out of message
+  bodies (which fails for media-only or service-message-only chats)."""
+  directory = f'Downloads/{chat_id}'
+  if not os.path.exists(directory):
+    os.makedirs(directory)
+  name = (getattr(chat, 'title', None) or getattr(chat, 'username', None)
+          or getattr(chat, 'first_name', None) or str(chat_id))
+  metadata = {
+    'chat_id': getattr(chat, 'id', chat_id),
+    'name': name,
+    'title': getattr(chat, 'title', None),
+    'username': getattr(chat, 'username', None),
+    'first_name': getattr(chat, 'first_name', None),
+    'type': str(getattr(chat, 'type', '')),
+    'members_count': getattr(chat, 'members_count', None),
+  }
+  try:
+    with open(f'{directory}/metadata.json', 'w', encoding='utf-8') as f:
+      json.dump(metadata, f, ensure_ascii=False, indent=2)
+  except Exception as e:
+    print(f"Could not write chat metadata: {e}")
+
+
 def process_messages(bot_token, chat_id, num_messages, message_id):
   directory = f'sessions/{chat_id}'
   if not os.path.exists(directory):
@@ -60,6 +85,7 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
     try:
       # Calculate the counter to get the correct number of messages. We do this so we can iterate through the messages in reverse order from the latest message.
       counter = message_id - num_messages
+      metadata_written = False
       # message ids are >= 1; the lower bound also guarantees termination when
       # missing ids keep pushing `counter` negative (e.g. many deleted messages).
       while message_id >= counter and message_id > 1:
@@ -77,6 +103,10 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
             pass
           else:
             parse_and_print_message(messages)
+            # Record chat metadata once, from the first real message we see.
+            if not metadata_written and messages.chat is not None:
+              write_chat_metadata(chat_id, messages.chat)
+              metadata_written = True
             if messages.media is not None:
               file_id, file_name = get_file_info(messages)
               file_name = f"downloads/{chat_id}/{message_id}_{file_name}"
