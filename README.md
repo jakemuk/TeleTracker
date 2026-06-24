@@ -41,13 +41,23 @@ This repository contains Python scripts, `TeleTexter.py`, `TeleGatherer.py` and 
 
 ## Installation
 
-To use these scripts, Python must be installed on your system, along with the `requests` library.
+To use these scripts, Python (3.8+) must be installed on your system.
 
 1. Clone the repository:\
 ```git clone https://github.com/tsale/TeleTracker.git```
 
-2. Install the required Python package:\
-`pip install -r requirements`
+2. (Recommended) Create and activate a virtual environment:\
+`python -m venv .venv` then `.\.venv\Scripts\activate` (Windows) or `source .venv/bin/activate` (Linux/macOS)
+
+3. Install the required Python packages:\
+`pip install -r requirements.txt`
+
+> [!NOTE]
+> The message-download feature (`TeleViewer.py`, menu option 6) uses the MTProto
+> library [`kurigram`](https://pypi.org/project/kurigram/) — a maintained drop-in
+> fork of the now-abandoned `pyrogram`. It installs under the `pyrogram` namespace,
+> so no code changes are needed, and it supports modern 64-bit Telegram chat/channel
+> IDs (the original `pyrogram==2.0.106` raised `Peer id invalid` on those).
 
 ## Usage
 
@@ -107,6 +117,7 @@ The viewer automatically detects all chats in your `Downloads/` folder and displ
 
 ## Recent Updates
 
+- **Dependency fix** - Switched from the abandoned `pyrogram` package to the maintained `kurigram` fork, fixing `Peer id invalid` errors when downloading messages from channels/groups with modern 64-bit IDs.
 - **Web Viewer** - New Telegram-style web interface for browsing downloaded messages with search functionality
 - Ability to view and download all types of media from channels.
 - Option to select the number of messages for downloading.
