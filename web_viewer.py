@@ -333,24 +333,25 @@ def get_messages(chat_id):
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 100))
     
-    # Find the folder containing messages for this chat
-    chat_dir = DOWNLOADS_DIR / source_folder / 'logs'
-    
-    if not chat_dir.exists():
-        return jsonify({'error': 'Chat folder not found'}), 404
-    
-    json_file = chat_dir / f'{source_folder}_bot.json'
-    txt_file = chat_dir / f'{source_folder}_bot.txt'
-    
     # Check cache key for filtered messages
     cache_key = f"{chat_id}_filtered"
-    
-    # Load all messages from JSON file (uses cache)
+
+    # A chat's messages can be split across multiple sender folders (the
+    # downloader saves each message under its sender's username), so aggregate
+    # across ALL download folders rather than just the recorded source_folder.
     all_messages = []
-    if json_file.exists():
-        all_messages = load_messages_from_json(json_file, use_cache=True)
-    elif txt_file.exists():
-        all_messages = load_messages_from_txt(txt_file)
+    if chat_id.startswith('txt_'):
+        # TXT-only chat: read just its own folder.
+        txt_file = DOWNLOADS_DIR / source_folder / 'logs' / f'{source_folder}_bot.txt'
+        if txt_file.exists():
+            all_messages = load_messages_from_txt(txt_file)
+    elif DOWNLOADS_DIR.exists():
+        for folder in DOWNLOADS_DIR.iterdir():
+            if not folder.is_dir():
+                continue
+            json_file = folder / 'logs' / f'{folder.name}_bot.json'
+            if json_file.exists():
+                all_messages.extend(load_messages_from_json(json_file, use_cache=True))
     
     # Filter messages to only include those from the target chat
     # Cache filtered results per chat
@@ -377,7 +378,20 @@ def get_messages(chat_id):
         
         # Sort by message ID (newest first)
         filtered_messages.sort(key=lambda x: x.get('id', 0), reverse=True)
-        
+
+        # De-duplicate by message id: logs are append-only (so re-downloads
+        # repeat messages) and a chat's messages may be aggregated from several
+        # folders, which can surface the same message more than once.
+        seen_ids = set()
+        deduped = []
+        for m in filtered_messages:
+            mid = m.get('id')
+            if mid is not None and mid in seen_ids:
+                continue
+            seen_ids.add(mid)
+            deduped.append(m)
+        filtered_messages = deduped
+
         # Cache filtered messages
         _message_cache[cache_key] = (datetime.now().timestamp(), filtered_messages)
     else:
