@@ -375,19 +375,12 @@ function formatDate(dateString) {
     
     try {
         const date = new Date(dateString);
-        const now = new Date();
-        const diff = now - date;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        
-        if (days === 0) {
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else if (days === 1) {
-            return 'Yesterday ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else if (days < 7) {
-            return date.toLocaleDateString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-        } else {
-            return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        }
+        if (isNaN(date.getTime())) return dateString;
+        // Always show the date alongside the time (e.g. "Jun 24, 2026, 14:17").
+        return date.toLocaleString([], {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
     } catch (e) {
         return dateString;
     }
