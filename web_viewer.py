@@ -197,20 +197,57 @@ def discover_all_chats(use_cache=True):
             return _chat_cache[cache_key]
     
     chats_dict = {}
-    
+
     if not DOWNLOADS_DIR.exists():
         _chat_cache[cache_key] = chats_dict
         return chats_dict
-    
-    # Scan all folders in Downloads
+
+    # New-style chat folders carry a metadata.json (written by the downloader).
+    # Present each such folder as a SINGLE chat holding all of its messages: a
+    # linked channel's posts are saved in the same folder but with a different
+    # chat id, so we must NOT split the folder on chat id.
+    metadata_folders = set()
     for chat_dir in DOWNLOADS_DIR.iterdir():
         if not chat_dir.is_dir():
             continue
-            
+        meta_file = chat_dir / 'metadata.json'
+        if not meta_file.exists():
+            continue
+        metadata_folders.add(chat_dir.name)
+        try:
+            with open(meta_file, 'r', encoding='utf-8') as f:
+                meta = json.load(f)
+        except Exception:
+            meta = {}
+        json_file = chat_dir / 'logs' / f'{chat_dir.name}_bot.json'
+        count = 0
+        if json_file.exists():
+            messages = load_messages_from_json(json_file, use_cache=use_cache)
+            count = len({m.get('id') for m in messages
+                         if isinstance(m, dict) and m.get('id') is not None})
+            _cache_timestamps[str(json_file)] = json_file.stat().st_mtime
+        chats_dict[chat_dir.name] = {
+            'id': chat_dir.name,
+            'chat_id': meta.get('chat_id'),
+            'username': meta.get('username'),
+            'name': meta.get('name') or chat_dir.name,
+            'type': meta.get('type', ''),
+            'message_count': count,
+            'source_folder': chat_dir.name,
+            'folder_chat': True,
+        }
+
+    # Scan remaining (legacy per-sender) folders, grouping by chat id as before.
+    for chat_dir in DOWNLOADS_DIR.iterdir():
+        if not chat_dir.is_dir():
+            continue
+        if chat_dir.name in metadata_folders:
+            continue
+
         logs_dir = chat_dir / 'logs'
         if not logs_dir.exists():
             continue
-        
+
         # Try JSON files first
         json_file = logs_dir / f'{chat_dir.name}_bot.json'
         if json_file.exists():
@@ -351,7 +388,32 @@ def get_messages(chat_id):
     # Get pagination parameters
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 100))
-    
+
+    # New-style chat folder: serve every message in the folder (deduped by id),
+    # so a group and its linked channel's posts appear together as one
+    # conversation instead of split across two same-named entries.
+    if chat_info.get('folder_chat'):
+        json_file = DOWNLOADS_DIR / source_folder / 'logs' / f'{source_folder}_bot.json'
+        msgs = load_messages_from_json(json_file) if json_file.exists() else []
+        msgs = [m for m in msgs if isinstance(m, dict)]
+        msgs.sort(key=lambda x: x.get('id', 0), reverse=True)
+        seen, deduped = set(), []
+        for m in msgs:
+            mid = m.get('id')
+            if mid is not None and mid in seen:
+                continue
+            seen.add(mid)
+            deduped.append(m)
+        total = len(deduped)
+        start_idx = (page - 1) * per_page
+        return jsonify({
+            'messages': deduped[start_idx:start_idx + per_page],
+            'pagination': {
+                'page': page, 'per_page': per_page, 'total': total,
+                'pages': (total + per_page - 1) // per_page
+            }
+        })
+
     # Check cache key for filtered messages
     cache_key = f"{chat_id}_filtered"
 
