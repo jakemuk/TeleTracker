@@ -79,7 +79,11 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
     os.makedirs(directory)
   bot_token_filename = bot_token.replace(":", "_").replace("/", "_")
   bot_token_filename = f"{directory}/{bot_token_filename}.session"
-  app = pyrogram.Client(bot_token_filename, api_id, api_hash)
+  # Pass the bot token and pin workdir to the cwd so a fresh session can be
+  # created and authorized on its own (the session file may not exist yet, e.g.
+  # on a clean checkout) instead of relying on a pre-authorized session.
+  app = pyrogram.Client(
+      bot_token_filename, api_id, api_hash, bot_token=bot_token, workdir=".")
 
   async def main(num_messages, message_id):
     # Download every existing message with id in [lower, message_id], newest
