@@ -376,6 +376,22 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     font-size: 12px;
     color: var(--tg-text-secondary);
+    display: none; /* hidden by default; toggled via "Show entity details" */
+}
+
+.app-container.show-entities .message-entities {
+    display: block;
+}
+
+.entities-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--tg-text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
 }
 
 .entity-item {

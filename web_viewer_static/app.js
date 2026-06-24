@@ -13,7 +13,17 @@ let searchQuery = '';
 document.addEventListener('DOMContentLoaded', () => {
     loadChats();
     setupSearch();
+    setupEntitiesToggle();
 });
+
+// Toggle the per-message entity metadata (hidden by default)
+function setupEntitiesToggle() {
+    const toggle = document.getElementById('entitiesToggle');
+    if (!toggle) return;
+    toggle.addEventListener('change', (e) => {
+        document.querySelector('.app-container').classList.toggle('show-entities', e.target.checked);
+    });
+}
 
 // Load list of chats
 async function loadChats() {
