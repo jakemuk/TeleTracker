@@ -82,73 +82,83 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
   app = pyrogram.Client(bot_token_filename, api_id, api_hash)
 
   async def main(num_messages, message_id):
+    # Download every existing message with id in [lower, message_id], newest
+    # first. Telegram serves up to 200 ids per get_messages call, so fetch in
+    # batches over a single open connection instead of reconnecting per message
+    # (far fewer round-trips and flood-waits when downloading a whole chat).
+    lower = max(1, message_id - num_messages + 1)
+    metadata_written = False
+    saved = 0
+    BATCH = 200
     try:
-      # Calculate the counter to get the correct number of messages. We do this so we can iterate through the messages in reverse order from the latest message.
-      counter = message_id - num_messages
-      metadata_written = False
-      # message ids are >= 1; the lower bound also guarantees termination when
-      # missing ids keep pushing `counter` negative (e.g. many deleted messages).
-      while message_id >= counter and message_id > 1:
-        message_id -= 1
-        async with app:
-          messages = await app.get_messages(chat_id, message_id)
-          if messages is None or messages.date is None:
-            # kurigram returns None for a missing/deleted message id, whereas
-            # old Pyrogram returned a stub with date=None. Handle both, so a gap
-            # (e.g. a deleted message) doesn't abort the whole download.
-            # Display the message_id not found every 10 messages
-            if message_id % 10 == 0:
-              print(f"[-] Message_id {message_id} not found")
-            counter -= 1
-            pass
-          else:
-            parse_and_print_message(messages)
-            # Record chat metadata once, from the first real message we see.
-            if not metadata_written and messages.chat is not None:
-              write_chat_metadata(chat_id, messages.chat)
-              metadata_written = True
-            if messages.media is not None:
-              file_id, file_name = get_file_info(messages)
-              file_name = f"downloads/{chat_id}/{message_id}_{file_name}"
-              # download the file
-              # Keep track of the progress while downloading
-              async def progress(current, total):
-                if total != 0:
-                  print(f"{current * 100 / total:.1f}%")
-                else:
-                  print(
-                      f"[*] Download of {file_name.split('/')[-1]} is complete!"
-                  )
+      async with app:
+        hi = message_id
+        while hi >= lower:
+          lo = max(lower, hi - BATCH + 1)
+          ids = list(range(hi, lo - 1, -1))  # newest first
+          batch = await app.get_messages(chat_id, ids)
+          if not isinstance(batch, list):
+            batch = [batch]
+          for messages in batch:
+            # kurigram returns None for a missing/deleted message id; skip gaps.
+            if messages is None or messages.date is None:
+              continue
+            # Isolate each message: a single bad/odd message (e.g. a web-page
+            # preview with no real media) must not abort the whole download.
+            try:
+              parse_and_print_message(messages)
+              # Record chat metadata once, from the first real message we see.
+              if not metadata_written and messages.chat is not None:
+                write_chat_metadata(chat_id, messages.chat)
+                metadata_written = True
+              if messages.media is not None:
+                file_id, file_name = get_file_info(messages)
+                # Skip media we can't resolve to a real file (web-page previews
+                # etc. return no file_id).
+                if file_id is not None:
+                  file_name = f"downloads/{chat_id}/{messages.id}_{file_name}"
+                  # Keep track of the progress while downloading
+                  async def progress(current, total, _fn=file_name):
+                    if total != 0:
+                      print(f"{current * 100 / total:.1f}%")
+                    else:
+                      print(f"[*] Download of {_fn.split('/')[-1]} is complete!")
 
-              await app.download_media(
-                  file_id,
-                  file_name=file_name,
-                  progress=progress,
-              )
-            # Save to file, always grouped by chat so the full chat history
-            # stays together regardless of which user sent each message. The
-            # sender is still recorded per-message in the log below.
-            directory = f'Downloads/{chat_id}/logs'
-            if not os.path.exists(directory):
-              os.makedirs(directory)
-            with open(f'{directory}/{chat_id}_bot.txt', 'a', encoding='utf-8') as file:
-              file.write(f"Message ID: {messages.id}\n")
-              if messages.from_user is not None:
-                file.write(
-                    f"From User ID: {messages.from_user.id} - Username: {messages.from_user.username}\n"
-                )
-              file.write(f"Date: {messages.date}\n")
-              file.write(f"Text: {messages.text}\n")
-              file.write(f"Reply_markup: {messages.reply_markup}\n\n")
-            # Save the whole message to a file
-            with open(f'{directory}/{chat_id}_bot.json', 'a', encoding='utf-8') as file:
-              file.write(str(messages))
-    except AttributeError as e:
-      print(f"Error: {e}")
-      pass
+                  try:
+                    await app.download_media(
+                        file_id,
+                        file_name=file_name,
+                        progress=progress,
+                    )
+                  except Exception as e:
+                    print(f"[-] Could not download media for message {messages.id}: {e}")
+              # Save to file, always grouped by chat so the full chat history
+              # stays together regardless of which user sent each message. The
+              # sender is still recorded per-message in the log below.
+              directory = f'Downloads/{chat_id}/logs'
+              if not os.path.exists(directory):
+                os.makedirs(directory)
+              with open(f'{directory}/{chat_id}_bot.txt', 'a', encoding='utf-8') as file:
+                file.write(f"Message ID: {messages.id}\n")
+                if messages.from_user is not None:
+                  file.write(
+                      f"From User ID: {messages.from_user.id} - Username: {messages.from_user.username}\n"
+                  )
+                file.write(f"Date: {messages.date}\n")
+                file.write(f"Text: {messages.text}\n")
+                file.write(f"Reply_markup: {messages.reply_markup}\n\n")
+              # Save the whole message to a file
+              with open(f'{directory}/{chat_id}_bot.json', 'a', encoding='utf-8') as file:
+                file.write(str(messages))
+              saved += 1
+            except Exception as e:
+              print(f"[-] Error processing message {getattr(messages, 'id', '?')}: {e}")
+              continue
+          print(f"[*] {saved} messages saved (scanned ids {lo}-{hi})")
+          hi = lo - 1
     except Exception as e:
       print(f"Error: {e}")
-      pass
+    print(f"[*] Done. {saved} messages saved to Downloads/{chat_id}/")
 
   try:
     # kurigram's Client.run() no longer accepts a coroutine (it only takes
