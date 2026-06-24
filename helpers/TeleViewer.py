@@ -79,10 +79,7 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
             parse_and_print_message(messages)
             if messages.media is not None:
               file_id, file_name = get_file_info(messages)
-              if messages.from_user is not None:
-                file_name = f"downloads/{messages.from_user.username}/{message_id}_{file_name}"
-              else:
-                file_name = f"downloads/{chat_id}/{message_id}_{file_name}"
+              file_name = f"downloads/{chat_id}/{message_id}_{file_name}"
               # download the file
               # Keep track of the progress while downloading
               async def progress(current, total):
@@ -98,36 +95,24 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
                   file_name=file_name,
                   progress=progress,
               )
-            # save to file
-            if messages.from_user is not None:
-              username = messages.from_user.username
-              directory = f'Downloads/{username}/logs'
-              if not os.path.exists(directory):
-                os.makedirs(directory)
-              with open(f'{directory}/{username}_bot.txt', 'a', encoding='utf-8') as file:
-                file.write(f"Message ID: {messages.id}\n")
+            # Save to file, always grouped by chat so the full chat history
+            # stays together regardless of which user sent each message. The
+            # sender is still recorded per-message in the log below.
+            directory = f'Downloads/{chat_id}/logs'
+            if not os.path.exists(directory):
+              os.makedirs(directory)
+            with open(f'{directory}/{chat_id}_bot.txt', 'a', encoding='utf-8') as file:
+              file.write(f"Message ID: {messages.id}\n")
+              if messages.from_user is not None:
                 file.write(
                     f"From User ID: {messages.from_user.id} - Username: {messages.from_user.username}\n"
                 )
-                file.write(f"Date: {messages.date}\n")
-                file.write(f"Text: {messages.text}\n")
-                file.write(f"Reply_markup: {messages.reply_markup}\n\n")
-              # Save the whole message to a file
-              with open(f'{directory}/{username}_bot.json',
-                        'a', encoding='utf-8') as file:
-                file.write(str(messages))
-            else:
-              directory = f'Downloads/{chat_id}/logs'
-              if not os.path.exists(directory):
-                os.makedirs(directory)
-              with open(f'{directory}/{chat_id}_bot.txt', 'a', encoding='utf-8') as file:
-                file.write(f"Message ID: {messages.id}\n")
-                file.write(f"Date: {messages.date}\n")
-                file.write(f"Text: {messages.text}\n")
-                file.write(f"Reply_markup: {messages.reply_markup}\n\n")
-              # Save the whole message to a file
-              with open(f'{directory}/{chat_id}_bot.json', 'a', encoding='utf-8') as file:
-                file.write(str(messages))
+              file.write(f"Date: {messages.date}\n")
+              file.write(f"Text: {messages.text}\n")
+              file.write(f"Reply_markup: {messages.reply_markup}\n\n")
+            # Save the whole message to a file
+            with open(f'{directory}/{chat_id}_bot.json', 'a', encoding='utf-8') as file:
+              file.write(str(messages))
     except AttributeError as e:
       print(f"Error: {e}")
       pass
