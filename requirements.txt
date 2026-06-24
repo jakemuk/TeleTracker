@@ -1,4 +1,7 @@
-Pyrogram==2.0.106
+# kurigram is a maintained drop-in fork of the (now-stale) Pyrogram 2.0.106.
+# It imports as `pyrogram` but ships modern 64-bit peer-id ranges, fixing the
+# "Peer id invalid" error on large channel/group ids during message download.
+kurigram==2.2.23
 python-dotenv==1.0.0
 requests==2.31.0
 tgcrypto
