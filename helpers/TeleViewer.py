@@ -87,6 +87,24 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
     # batches over a single open connection instead of reconnecting per message
     # (far fewer round-trips and flood-waits when downloading a whole chat).
     lower = max(1, message_id - num_messages + 1)
+    # Ids already saved on a previous run (parsed from the readable log), so we
+    # neither re-fetch nor re-save them: repeat/update runs only get new ones.
+    txt_path = f'Downloads/{chat_id}/logs/{chat_id}_bot.txt'
+    existing_ids = set()
+    if os.path.exists(txt_path):
+      try:
+        # utf-8-sig tolerates a stray BOM if the log was ever rewritten by hand.
+        with open(txt_path, encoding='utf-8-sig') as f:
+          for line in f:
+            if line.startswith('Message ID: '):
+              try:
+                existing_ids.add(int(line[len('Message ID: '):].strip()))
+              except ValueError:
+                pass
+      except Exception as e:
+        print(f"[-] Could not read existing log: {e}")
+    if existing_ids:
+      print(f"[*] {len(existing_ids)} messages already downloaded; fetching only new ones.")
     metadata_written = False
     saved = 0
     BATCH = 200
@@ -99,10 +117,16 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
           batch = await app.get_messages(chat_id, ids)
           if not isinstance(batch, list):
             batch = [batch]
+          real_in_batch = 0
+          skipped_existing = 0
           for messages in batch:
             # kurigram returns None for a missing/deleted message id; skip gaps.
             if messages is None or messages.date is None:
               continue
+            real_in_batch += 1
+            if messages.id in existing_ids:
+              skipped_existing += 1
+              continue  # already downloaded on a previous run
             # Isolate each message: a single bad/odd message (e.g. a web-page
             # preview with no real media) must not abort the whole download.
             try:
@@ -150,15 +174,21 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
               # Save the whole message to a file
               with open(f'{directory}/{chat_id}_bot.json', 'a', encoding='utf-8') as file:
                 file.write(str(messages))
+              existing_ids.add(messages.id)
               saved += 1
             except Exception as e:
               print(f"[-] Error processing message {getattr(messages, 'id', '?')}: {e}")
               continue
-          print(f"[*] {saved} messages saved (scanned ids {lo}-{hi})")
+          print(f"[*] {saved} new messages saved (scanned ids {lo}-{hi})")
+          # Stop once a whole batch of real messages is already downloaded:
+          # going newest-first, everything older is already saved too.
+          if real_in_batch > 0 and skipped_existing == real_in_batch:
+            print("[*] Reached already-downloaded messages; stopping early.")
+            break
           hi = lo - 1
     except Exception as e:
       print(f"Error: {e}")
-    print(f"[*] Done. {saved} messages saved to Downloads/{chat_id}/")
+    print(f"[*] Done. {saved} new messages saved to Downloads/{chat_id}/")
 
   try:
     # kurigram's Client.run() no longer accepts a coroutine (it only takes
