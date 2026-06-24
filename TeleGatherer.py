@@ -314,10 +314,16 @@ def main(bot_token, chat_id):
 
 # Check a file for the bot token and chat id pair it is stored in the file in the form of bot_token:chat_id, then print a message asking if you are sure you want to continue. Otherwise continue and add the bot token and chat id to the file in the form of bot_token:chat_id and continue.
 def check_file_for_token_and_chat_id(file_path, bot_token, chat_id):
-  with open(file_path, 'r', encoding='utf-8') as file:
-    for line in file:
-      if line.strip() == f"{bot_token}:{chat_id}":
-        return True
+  try:
+    with open(file_path, 'r', encoding='utf-8') as file:
+      for line in file:
+        if line.strip() == f"{bot_token}:{chat_id}":
+          return True
+  except FileNotFoundError:
+    # First run or fresh clone: the history file doesn't exist yet. It will be
+    # created by add_token_and_chat_id_to_file below. (.bot-history is no longer
+    # tracked in git, so it won't be present after a clean clone.)
+    pass
   return False
 
 def add_token_and_chat_id_to_file(file_path, bot_token, chat_id):
