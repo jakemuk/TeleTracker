@@ -60,11 +60,16 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
     try:
       # Calculate the counter to get the correct number of messages. We do this so we can iterate through the messages in reverse order from the latest message.
       counter = message_id - num_messages
-      while message_id >= counter:
+      # message ids are >= 1; the lower bound also guarantees termination when
+      # missing ids keep pushing `counter` negative (e.g. many deleted messages).
+      while message_id >= counter and message_id > 1:
         message_id -= 1
         async with app:
           messages = await app.get_messages(chat_id, message_id)
-          if messages.date is None:
+          if messages is None or messages.date is None:
+            # kurigram returns None for a missing/deleted message id, whereas
+            # old Pyrogram returned a stub with date=None. Handle both, so a gap
+            # (e.g. a deleted message) doesn't abort the whole download.
             # Display the message_id not found every 10 messages
             if message_id % 10 == 0:
               print(f"[-] Message_id {message_id} not found")
@@ -131,7 +136,10 @@ def process_messages(bot_token, chat_id, num_messages, message_id):
       pass
 
   try:
-    app.run(main(num_messages, message_id))
+    # kurigram's Client.run() no longer accepts a coroutine (it only takes
+    # keyword args), unlike the old Pyrogram. Run the coroutine on the client's
+    # event loop directly, which is exactly what Pyrogram's run(coroutine) did.
+    app.loop.run_until_complete(main(num_messages, message_id))
   except KeyboardInterrupt:
     print("\nStopping...")
     app.disconnect()
